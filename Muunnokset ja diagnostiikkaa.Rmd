@@ -1,0 +1,273 @@
+---
+title: "Muunnokset ja diagnostiikkaa"
+output: pdf_document
+---
+
+```{r}
+library(alr4)
+```
+
+# Tehtävä 1
+
+## 8.1
+(Data file: baeskel) These data were collected in a study of the effect of dissolved sulfur on the surface tension of liquid copper (Baes and Kellogg, 1953). The predictor Sulfur is the weight percent sulfur, and the response is Tension, the decrease in surface tension in dynes per centimeter. Two replicate observations were taken at each value of Sulfur. These data were previously discussed by Sclove (1968).
+
+
+## 8.1.1
+Draw the plot of Tension versus Sulfur to verify that a transformation is required to achieve a straight-line mean function.
+
+Piirretään scatterplot Tension versus Sulfur
+```{r}
+plot(Tension ~ Sulfur, data=baeskel)
+```
+Ei oikein sovi lineaarinen malli suoraan tähän.
+
+## 8.1.2 
+Set lambda = -1, and fit the mean function E(Tension|Sulfur) = B0 + B1*Sulfur^lambda using ols; that is, fit the ols regression with Tension as the response and 1/Sulfur as the regressor. Add a line for the fitted values from this fit to the
+plot you drew in Problem 8.1.2. If you do not have a program that will do
+this automatically, you can let new be a vector of 100 equally spaced values between the minimum value of Sulfur and its maximum value. Compute the fitted values Fit.new = 
+B0 + B1new^lambda, and a line joining these points to your
+graph. Repeat for lambda = 0,1 and so in the end you will have three lines on your plot. Which of these three choices of lambda gives fitted values that match the data most closely?
+
+Sijoitetaan ensin lambda = -1 -malli, ja piirretään estimoitu käyrä suoraan 1. kohdan plottiin.
+```{r}
+lambda_miinus <- lm(Tension ~ I(1/Sulfur), data=baeskel)
+plot(Tension ~ Sulfur, data=baeskel)
+curve(predict(lambda_miinus,newdata=data.frame(Sulfur=x)),add=T, col="red", lwd=2)
+```
+Sopii paremmin kuin suora, mutta toivomisen varaa jää.
+
+
+Sijoitetaan vielä mallit joissa lambda = 0 ja lambda = 1 ja piirretään nekin suorat scatterplotiin. Kirjassa tulkittiin lambda = 0 logaritmisena muunnoksena.
+
+```{r}
+lambda_nolla <- lm(Tension ~ log(Sulfur), data=baeskel)
+lambda_plus  <- lm(Tension ~ Sulfur, data=baeskel)
+plot(Tension ~ Sulfur, data=baeskel)
+curve(predict(lambda_miinus,newdata=data.frame(Sulfur=x)),add=T, col="red", lwd=2)
+curve(predict(lambda_nolla,newdata=data.frame(Sulfur=x)),add=T, col="green", lwd=2)
+curve(predict(lambda_plus,newdata=data.frame(Sulfur=x)),add=T, col="black", lwd=2)
+```
+Näistä käyristä vihreä sopii selvästi parhaiten, eli selittäjä on logaritmoitu.
+
+
+
+## 8.1.3 
+Replace Sulfur by its logarithm, and consider transforming the response Tension. To do this, draw the inverse fitted value plot with the fitted values from the regression Tension - log(Sulfur) on the vertical axis and Tension on the horizontal axis. Repeat the methodology of Problem 8.1.2 to decide if further transformation of the response will be helpful. Vihje: inverse fitted value plot (jota kutsutaan myös inverse response plotiksi) on kuvattu Weisbergin kirjan sivulla 196. Siinä piirretään vastakkain estimoidun mallin sovite ja vastemuuttujan havaitut arvot. Tässä tehtävässä tavoitteena on löytää vastemuuttujalle muunnos, joka linearisoi sen ja sovitteen välisen yhteyden.
+
+meillä on jo log(Sulfur)-malli edellisestä tehtävästä, joten plotataan sen estimoidut arvot vastemuuttujan Tension havaittuja arvoja vastaan.
+
+```{r}
+sijoitetut <- lambda_nolla$fitted.values
+plot(baeskel$Tension, sijoitetut)
+```
+Nähdään, että Tension-vasteen arvojen ja mallin sovitettujen arvojen suhde on suht lineaarinen.
+
+Toistetaan 2-kohdan menetelmä, mutta nyt selitettävänä muuttujana on Tension - log(Sulfur) mallin sovitteet, ja selittäjänä Tension. Testataan siis lambdan eri arvoilla, tarvitseeko Tensionille tehdä joku muunnos:
+```{r}
+Tens_data <- data.frame(Tension = baeskel$Tension, Sijoitetut=sijoitetut)
+
+tens_miinus <- lm(Sijoitetut ~ 1/Tension, data=Tens_data)
+tens_nolla <- lm(Sijoitetut ~ log(Tension), data=Tens_data)
+tens_plus <- lm(Sijoitetut ~ Tension, data=Tens_data)
+```
+
+
+plotataan tulokset:
+```{r}
+plot(Sijoitetut ~ Tension, data=Tens_data)
+curve(predict(tens_miinus,newdata=data.frame(Tension=x)),add=T, col="red", lwd=2)
+curve(predict(tens_nolla,newdata=data.frame(Tension=x)),add=T, col="green", lwd=2)
+curve(predict(tens_plus,newdata=data.frame(Tension=x)),add=T, col="black", lwd=2)
+```
+Musta viiva on mallin, jossa lambda = 1. Se sopii selvästi parhaiten kuvaajan datapisteisiin, eli selittäjää ei tarvitse transformoida. Paras linearisointi tapahtuu, kun vastemuutuujalle ei tehdä muunnosta.
+
+
+# Tehtävä 2
+
+## 8.2
+(Weisberg 8.2) (Data file: stopping) We reconsider the stopping distance data used in Problem 7.6.
+
+## 8.2.1 
+Using Speed as the only regressor, find an appropriate transformation for Distance that can linearize this regression. Vihje: Toimi kuten edellä tehtävässä 8.1.3.
+
+
+plotataan sitten inverse fitted value plot, eli mallin Distance - Speed mallin sovite vs. Distancen havaitut arvot
+```{r}
+dist_fit <- lm(Distance ~ Speed, data=stopping)
+stoptimes <- stopping
+stoptimes$Fitted <- dist_fit$fitted.values
+plot(Fitted ~ Distance, data=stoptimes)
+```
+
+Nyt haluaisimme tietää, löydetäänkö muuttujalle Distance joku muunnos joka linearisoisi tämän suhteen vielä paremmin. Käytetään siis samaa menetelmää kuin 1. tehtävän tapauksessa, ja kokeillaan eri malleja joissa annamme lambdalle arvot {-1, 0, 1} (0 tarkoittaa logaritmia).
+
+Mallit eri lambdan arvoilla lambda = {-1, 0, 1, 1/2}
+```{r}
+# lambda = -1
+dist_miinus <- lm(Fitted ~ 1/Distance, data=stoptimes)
+# lambda = 0
+dist_nolla <- lm(Fitted ~ log(Distance), data=stoptimes)
+# lambda = 1
+dist_plus <- lm(Fitted ~ Distance, data=stoptimes)
+
+dist_sqrt <- lm(Fitted ~ sqrt(Distance), data=stoptimes)
+```
+
+Plotataan arvot
+```{r}
+plot(Fitted ~ Distance, data=stoptimes)
+curve(predict(dist_miinus,newdata=data.frame(Distance=x)),add=T, col="red", lwd=2)
+curve(predict(dist_nolla,newdata=data.frame(Distance=x)),add=T, col="green", lwd=2)
+curve(predict(dist_plus,newdata=data.frame(Distance=x)),add=T, col="black", lwd=2)
+curve(predict(dist_sqrt,newdata=data.frame(Distance=x)),add=T, col="blue", lwd=2)
+```
+Nyt on mielenkiintoinen tilanne. Näyttää sevästi siltä, että datapisteet kaareutuvat, eivätkä ole aivan lineaarisesti riippuvaisia toisistaan. Kuitenkin jos logaritmoidaan vaste (vihreä viiva), niin se ehkä kaareutuu liikaa. Paras vaihtoehto näistä tapauksista näyttää olevan lambda = 1/2, eli sininen viiva. 
+
+
+## 8.2.2 
+Using Distance as the response, transform the predictor Speed using a power transformation with each lambda = {-1, 0, 1}, and show that none of these transformations is adequate.
+
+Tehdään sama, mutta tällä kertaa käytetään power transformation -metodia, kun lambda = {-1, 0, 1}
+```{r}
+stop_powermiinus <- lm(Distance ~ I((Speed^(-1) - 1)/(-1)), data=stopping)
+stop_powernolla <- lm(Distance ~ log(Speed), data=stopping)
+stop_powerplus  <- lm(Distance ~ I(Speed-1), data=stopping)
+
+```
+
+```{r}
+plot(Distance ~ Speed, data=stopping)
+curve(predict(stop_powermiinus,newdata=data.frame(Speed=x)),add=T, col="red", lwd=2)
+curve(predict(stop_powernolla,newdata=data.frame(Speed=x)),add=T, col="green", lwd=2)
+curve(predict(stop_powerplus,newdata=data.frame(Speed=x)),add=T, col="black", lwd=2)
+```
+Musta viiva voittaa, eli power transformaatiossa lambda = 1 sopii parhaiten näillä lambdan arvoilla, mutta vielä jää selittämättä paljon hajontaa, koska datapisteet kaareutuvat ylöspäin.
+
+
+
+## 8.2.3 
+Show that using lambda = 2 does match the data well. This suggests using
+a quadratic polynomial for regressors, including both Speed and Speed^2. 
+
+Kokeillaan vielä power tranformaatiota lambdan arvolla lambda = 2
+```{r}
+stop_powerplus2 <- lm(Distance ~ I((Speed^(2) - 1)/(2)), data=stopping)
+```
+
+Piirretään kuva
+```{r}
+plot(Distance ~ Speed, data=stopping)
+#plot(stopping$Distance, dist_fit$fitted.values)
+#abline(stop_powerplus2, col="green", lwd=2)
+curve(predict(stop_powerplus2,newdata=data.frame(Speed=x)),add=T, col="green", lwd=2)
+```
+Huomataan, että lambdan arvolla 2 käyrä tosiaan sopii dataan parhaiten.
+
+
+## 8.2.4 
+Hald (1960) suggested on the basis of a theoretical argument using a
+quadratic mean function for Distance given Speed, with
+
+  Var(Distance|Speed) = sigma^2 * Speed^2
+
+Draw the plot of Distance versus Speed, and add a line on the plot of the fitted curve from Hald’s model. Then obtain the fitted values from the fit of the transformed Distance on Speed, using the transformation you found in Problem 8.2.1. Transform these fitted values to the Distance scale (for example, if you fit the regression sqrt(Distance) - Speed, then the fitted values would be in square-root scale and you would square them to get the original Distance scale). Add to your plot the line corresponding to these transformed fitted values. Compare the fit of the two models.
+
+1. kohdan perusteella saatiin tulos, että Distancen paras muunnos on lambda = 1/2.
+Haldin malli on wls jossa painokertoimina on 1/Speed^2. Plotataan Distance versus Speed ja sovitetaan painotettu malli. Piirreätään kuvaan odotusarvokäyrä.
+```{r}
+Hald <- lm(Distance ~ Speed, data=stopping, weights = 1/Speed^2)
+plot(Distance ~ Speed,data=stopping)
+curve(predict(Hald,newdata=data.frame(Speed=x)),add=T, col="green", lwd=2)
+#curve(predict(Hald,newdata=data.frame(Speed=x)),add=T, col="green", lwd=2)
+
+```
+wls-suora Haldin mallissa sopii melko hyvin.
+
+Sovitetaan kohdassa 1. saatu malli (lambda = 1/2) ja otetaan talteen sovitteet
+```{r}
+ykkosmalli <- lm(sqrt(Distance) ~ Speed, data=stopping)
+ykkos_fitted <- ykkosmalli$fitted.values
+```
+
+plotataan Dist vs Speed ja plotataan kuvaan myös sovitteet. koska selittäjä muuttuja oli sqrt(Distance), niin plotataan sovitteet potenssiin 2.
+```{r}
+# <- lm(log(Distance) ~ Speed, data=stopping)
+plot(Distance ~ Speed,data=stopping)
+points(stopping$Speed, ykkos_fitted^2, col="red", pch=18, type="b")
+#curve(predict(ykkosmalli,newdata=data.frame(Speed=x)),add=T, col="green", lwd=2)
+```
+Nähdään että tällä tavoin sovitettuna käyrä sopii erinomaisesti. Verrattuna Haldin malliin tämä malli on suotavampi.
+
+# Tehtävä 3
+
+## 8.3
+(Weisberg 8.3) (Data file: water) A major source of water in Southern California is the Owens Valley. This water supply is in turn replenished by spring runoff from the Sierra Nevada mountains. If runoff could be predicted, engineers, planners, and policy makers could do their jobs more efficiently. The data file contains snowfall depth measurements over 43 years taken at six sites in the mountains, in inches, and stream runoff volume at a site near Bishop, California. The three sites with names starting with “O” are fairly close to each other, and the three sites starting with “A” are also fairly close to each other. Year is also given in the data file, but should not be used as a predictor.
+
+## 8.3.1 
+Construct the scatterplot matrix of the data, and provide general comments about relationships among the variables.
+
+piirretään scatterplot
+```{r}
+pairs(water[,c(-1)], pch=18)
+```
+Ehkä vähemmän yllättävästi A-alkuiset korreloivat vahvasti keskenään, kuten myös O-alkuiset. Myös O-alkuiset ja BSAAM ovat vahvasti yhteydessä, mutta A-alkuisten ja BSAAMin välillä on jo paljon vähemmän korrelaatiota. Siinäkin on nouseva trendi heikosti nähtävissä. O- ja A- alkuisten välillä heikosti myös.
+
+## 8.3.2 
+Using the methodology for automatic choice of transformations outlined in Section 8.2.2, find transformations to make the transformed predictors as close to linearly related as possible. Obtain a test of the hypothesis that all lambda_j = 0 against a general alternative, and summarize your results. Do the transformations you found appear to achieve linearity? How do you know? Vihje: paketin car funktio powerTransform() implementoi kappaleessa 8.2.2. kuvatun moniulotteisen Box-Cox-menetelmän ja laskee myös halutun testin.
+
+Tehdään Box-Cox
+```{r}
+trans <- powerTransform(cbind(APMAM, APSAB, APSLAKE, OPBPC,  OPRC, OPSLAKE) ~ 1,water)
+summary(trans)
+```
+Testin tulosteesta nähdään, että testin, jossa kaikki lambdat ovat nollia, p-arvo on 0.48716, ja kaikki estimaatit ovat lähellä nollaa, joten paras linearisointi on log-muunnos kaikille selittäjille.
+
+
+## 8.3.3 
+Given log transformations of the predictors, show that a log transformation of the response is reasonable. Vihje: käytä inverse fitted-value plottia tai Box-Cox-menetelmää.
+
+```{r}
+water_fit <- lm(BSAAM ~ APMAM + APSAB + APSLAKE + OPBPC + OPRC + OPSLAKE, data=water)
+inverseResponsePlot(water_fit)
+#summary(powerTransform(water_fit))
+```
+Testin mukaan lambda = 1 minimoisi residuaalineliösumman, mutta kuvasta nähdään, että  lambda = 0 on toiseksi paras, (pinkki käyrä) sopii dataan myös hyvin.
+
+
+## 8.3.4 
+Consider the multiple linear regression model with mean function given by
+
+  log(BSAAM) - log(APMAM) + log(APSAB) + log(APSLAKE)
+    + log(OPBPC) + log(OPRC) + log(OPSLAKE) (0.1)
+    
+with constant variance function. Estimate the regression coefficients using ols. You will find that two of the estimates are negative; Which are they? Does a negative coefficient make any sense? Why are the coefficients negative?
+
+```{r}
+water_ols <- lm(log(BSAAM) ~ log(APMAM) + log(APSAB) + log(APSLAKE)
+    + log(OPBPC) + log(OPRC) + log(OPSLAKE), data=water)
+summary(water_ols)
+```
+Summarysta nähdään, että log(APMAM) ja log(APSAB) -estimaatit ovat negatiiviset. Negatiiviset termit tarkoittavat suhdetta selittäjän ja selitettävän muuttujan välillä, negatiiviset estimaatit tarkoittavat, että kun selitettävä muuttuja kasvaa, selittäjä pienenee. Molempien arvoit voivat kuitenkin olla positiivisia (ja ovatkin) selittävän muuttujan vaihteluvälillä. Nämä selittävät muuttujat eivät kuitenkaan ole merkitseviä.
+
+
+## 8.3.5
+Test the hypothesis that the coefficients for the three “O” log predictors are equal against the alternative that they are not all equal. Repeat for the “A” predictors. Explain why these might be interesting hypotheses. (Hint: The geometric mean of the regressors OPBPC, OPRC, OPSLAKE is equal to exp[(log(OPBPC) + log(OPRC) + log(OPSLAKE))/3], and so the sum [log(OPBPC) + log(OPRC) + log(OPSLAKE)] is proportional to the logarithm of the geometric mean of these regressors. If the three coefficients are equal, then we are essentially replacing the three predictors by one regressor equivalent to the logarithm of their geometric mean.)
+Vihje: voit ratkaista tehtävän Weisbergin vinkkien mukaisesti vertaamalla kilpailevia malleja kappaleesta 6.2 tutulla F-testillä, mutta vaihtoehtoisesti voit muotoilla halutun hypoteesin Lima I kurssilta tuttuun muotoon AB = c, ja testata sitä car-paketin linearHypothesis()-funktiolla.
+
+Testataan ensin A-alkuisia muuttujia, nollahypoteesina on, että ne ovat samat:
+```{r}
+linearHypothesis(water_ols, c(0, 1, -1, -1, 0, 0, 0))
+```
+p-arvo kertoo, että nollahypoteesia vastaan ei ole merkitsevyyttä, eli voitaiisiin hylätä hypoteesi, että A-alkuiset estimaatit ovat samat. A-alkuisia selittäjiä ei siis voitaisi korvata yhdellä yhteisellä selittäjällä.
+
+
+Testataan sitten O-alkuisia selittäjiä:
+```{r}
+linearHypothesis(water_ols, c(0, 0, 0, 0, 1, -1, -1))
+```
+O-alkuisten tapauksessa saadaan merkitsevyyttä hypoteesille että O-alkuiset ovat samat 95% luottamustasolla. Tämä kertoo siis siitä, että O-alkuiset selittäjät voitaisiin korvat yhdellä yhteisellä selittäjällä ja saada malliin vähemmän parametreja.
+
+
+
+

@@ -1,0 +1,229 @@
+---
+title: "Splinet ja epälineaarinen regressio"
+output: pdf_document
+---
+
+```{r}
+library(alr4)
+```
+
+# Tehtävä 1
+
+## 5.9
+(Data file: salarygov) The data file gives the maximum monthly salary for 495 nonunionized job classes in a midwestern governmental unit in 1986. The variables are described in Table 5.9.
+
+
+## 5.9.1.
+Examine the scatterplot of MaxSalary versus Score, and verify that simple regression provides a poor description of this figure.
+
+Piirretään scatterplot MaxSalary versus Score
+```{r}
+scatterplot(MaxSalary ~ Score, data=salarygov)
+```
+
+Huomataan, että yhteys ei ole lineaarinen, pikemminkin polynominen, Scoren kasvaessa datapisteet kaareutuvat ylöspäin.
+
+## 5.9.2. 
+Fit the regression with response MaxSalary and regressors given by B-splines, with d given by 4, 5, and 10. Draw the fitted curves on a figure with the data and comment.
+
+```{r}
+library(splines)
+colpal <- rainbow(3)
+```
+
+Sijoitetaan mallit B-splineilla, kun d=4, 5, ja 10 ja piirretään mallit MaxSalary - Score plottiin eri d:n arvoilla.
+```{r}
+sal_fit4 <- lm(MaxSalary ~ bs(Score, degree=4), data=salarygov)
+sal_fit5 <- lm(MaxSalary ~ bs(Score, degree=5), data=salarygov)
+sal_fit10 <- lm(MaxSalary ~ bs(Score, degree=10), data=salarygov)
+
+x <- with(salarygov, seq(min(Score), max(Score), length=100))
+plot(MaxSalary ~ Score, data=salarygov, pch=18)
+lines(x, predict(sal_fit4, newdata=data.frame(Score=x)), lwd=2, col="red")
+lines(x, predict(sal_fit5, newdata=data.frame(Score=x)), lwd=2, col="green")
+lines(x, predict(sal_fit10, newdata=data.frame(Score=x)), lwd=2, col="blue")
+
+legend("bottomright",lty=1, col=colpal, legend=c(expression(paste(d, "=4")), expression(paste(d, "=5")),
+expression(paste(d, "=10"))))
+
+```
+Kuvasta nähdään, että kaikki mallit selittävät alkupään datan kaareutuvuutta hyvin siellä, missä suurin osa havainoista sijaitsee. Selvästi, kun d=10 alkaa näkyä ylisovittamista, jokainen havaito vaikuttaa estimaatin kulmakertoimeen ja alku- ja loppupäästä näkyy ylisovitus. Kun d=5 niin sama ilmiö näkyy myös lievemmin, etenkin ihan yläpäästä suora kaareutuu voimakkaasti alaspäin. Parhaiten näkyisi sopivan malli d=4, se ei yritä ylisopia dataan.
+
+
+## 5.9.3. 
+According to Minnesota statutes, and probably laws in other states as well, a job class is considered to be female dominated if 70% of the employees or more in the job class are female. These data were collected to examine whether female-dominated positions are compensated at a lower level, adjusting for Score, than are other positions. Create a factor with two levels that divides the job classes into female dominated or not. Then, fit a model that allows for a separate B-spline for Score for each of the two groups. Since the coefficient estimates for the B-splines are uninterpretable, summarize the results using an effects plot. If your program does not allow you to use B- splines, use quadratic polynomials.
+
+Luodaan luokittelumuuttuja FD, joka saa arvon 1 jos JobClass on naisvaltainen ja muuten 0.
+```{r}
+salarygov$FD <- as.factor(ifelse((salarygov$NW/salarygov$NE)>=0.7 ,1 ,0))
+```
+
+Jaetaan data kahtia naisvaltaisiin vs. miesvaltaisiin
+```{r}
+salaryFD <- salarygov[salarygov$FD == 1,]
+salaryMD <- salarygov[salarygov$FD == 0,]
+```
+
+Sijoitetaan mallit B-spineilla, kun d=4 eri ryhmille.
+```{r}
+sal_fitFD <- lm(MaxSalary ~ bs(Score, degree=4), data=salaryFD)
+sal_fitMD <- lm(MaxSalary ~ bs(Score, degree=4), data=salaryMD)
+```
+
+Malli erikseen naisvaltaisille aloille:
+```{r}
+x <- with(salaryFD, seq(min(Score), max(Score), length=100))
+plot(MaxSalary ~ Score, data=salaryFD, pch=18)
+lines(x, predict(sal_fitFD, newdata=data.frame(Score=x)), lwd=2, col="green")
+```
+
+Malli erikseen miesvaltaisille aloille:
+```{r}
+y <- with(salaryMD, seq(min(Score), max(Score), length=100))
+plot(MaxSalary ~ Score, data=salaryMD, pch=18)
+lines(y, predict(sal_fitMD, newdata=data.frame(Score=y)), lwd=2, col="red")
+```
+
+Nais- ja miesvaltaisten alojen mallit piirrettynä samaan kuvaajaan.
+```{r}
+z <- with(salarygov, seq(min(Score), max(Score), length=100))
+plot(MaxSalary ~ Score, data=salarygov, pch=18)
+lines(z, predict(sal_fitMD, newdata=data.frame(Score=z)), lwd=2, col="red")
+lines(z, predict(sal_fitFD, newdata=data.frame(Score=z)), lwd=2, col="green")
+```
+Nähdään, että naisvaltaisten alojen pohjalta tehty malli on maksimipalkan suhteen aina alempana kuin miesten. Lopun hurja nousu johtuu naismallin selittäjän arvojen rajan loppumisesta 800:aan, joten lopun nousu ei ole luotettava.
+
+```{r}
+plot(allEffects(sal_fitFD), grid=T, main="naisvaltaiset")
+plot(allEffects(sal_fitMD), grid=T, main="miesvaltaiset")
+```
+Työn haastavuus näyttäisi vaikuttavan positiivisesti palkkaan miesvaltaisilla aloilla, kun työn haastavuus on pieni. Naisvaltaisilla aloilla se sen sijaan vaikuttaa hyvin vähän, jos ollenkaan. Keskihaastavat työt vaikuttavat suht samoin palkkaan mies- ja naisvaltaisilla aloilla, kun taas erittäin haastavilla aloilla naisvaltaisten alojen haastavuus vaikuttaisi palkkaan enemmän kuin miesvaltaisten alojen. Tämä iso nousu kulmakertoimessa voi myös johtua mittauspisteiden vähyydestä korkeissa palkoissa naisvaltaisilla aloilla.
+
+
+# Tehtävä 2
+
+## 10.3
+(Data file: mantel) Using these “data” with response Y and three regressors X1,X2 and X3 from Mantel (1970) , apply the forward selection and backward elimination algorithms, using AIC as a criterion function. Also, find AIC and BIC for all possible models and compare results. Which appear to be the active regressors?
+
+Sovitetaan koko malli
+```{r}
+mant_fit <- lm(Y ~ X1 + X2 + X3, data=mantel)
+```
+
+Käytetään forward selection algoritmia, joka lisää selittäjiä malliin ja vertaa niiden AIC -arvoa ja lopettaa, jos AIC on suurempi
+```{r}
+step(mant_fit, direction = "forward")
+```
+Forward selection näyttäisi suosivan koko mallia, jonka AIC on -285.77
+
+
+Käytetään sitten backward elimination algoritmia
+```{r}
+step(mant_fit, direction = "backward")
+```
+Backward elimination näyttäisi suosivan mallia, jossa selittäjä X3 on tiputettu pois, sen AIC on melkein sama kuin koko mallin, mutta vähän pienempi.
+
+
+Lasketaan vielä AIC kaikille mahdollisille kombinaatioille malleista:
+```{r}
+mant_fit2 <- lm(Y ~ X1 + X2, data=mantel)
+mant_fit3 <- lm(Y ~ X1 + X3, data=mantel)
+mant_fit4 <- lm(Y ~ X2 + X3, data=mantel)
+mant_fit5 <- lm(Y ~ X1, data=mantel)
+mant_fit6 <- lm(Y ~ X2, data=mantel)
+mant_fit7 <- lm(Y ~ X3, data=mantel)
+
+
+
+extractAIC(mant_fit)
+extractAIC(mant_fit2)
+extractAIC(mant_fit3)
+extractAIC(mant_fit4)
+extractAIC(mant_fit5)
+extractAIC(mant_fit6)
+extractAIC(mant_fit7)
+
+
+```
+ nähdään, että AIC:t ovat samat kuin algoritmien tarjoamat, ja algoritmit valitsivat mallit joiden AIC on todellakin pienempi. Parhaat mallit ovat siis täysi malli, ja malli josta X3 on tiputettu pois, muiden mallien AIC on selvästi suurempi kuin näden mallien. Aktiiviset regressorit ovat ainakin X1 ja X2, Backward elimination suosittelisi X3:n tiputtamista pois, niin eräs tulkinta olisi että X3 ei olisi aktiivinen regressori. Näiden mallien AIC:t ovat kuitenkin melkein yhtä pieniä.
+ 
+ 
+# Tehtävä 3
+
+## 11.2
+(Date file: lakemary) In fisheries studies, the most commonly used mean function for expected length of a fish at a given age is the von Bertalanffy function (Bertalanffy, 1938; Haddon and Haddon, 2010), given by
+
+  E(Length|Age = t) = L_inf(1 - exp(-K(t - t0))
+  
+The parameter L_inf is the expected value of Length for extremely large ages, and so it is the asymptotic or upper limit to growth, and K is a growth rate parameter that determines how quickly the upper limit to growth is reached. When Age = t0, the expected length of the fish is 0, which allows fish to have nonzero length at birth if t0 < 0.
+
+## 11.2.1 
+The data in the file gives the Age in years and Length in millimeters for a sample of 78 bluegill fish from Lake Mary, Minnesota, in 1981 (courtesy of Richard Frie). Age is determined by counting the number of rings on a scale of the fish. This is a cross-sectional data set, meaning that all the fish were measured once. Draw a scatterplot of the data
+
+```{r}
+plot(Length ~ Age, data=lakemary)
+```
+Vähän on kaareutuvaa dataa, ja eri ikäluokissa päällekäinmeneviä painoja.
+
+## 11.2.2 
+Use nonlinear regression to fit the von Bertalanffy function to these data. To get starting values, first guess at L_inf from the scatterplot to be a value larger than any of the observed values in the data. Next, divide both sides of (11.22) by the initial estimate of L_inf, and rearrange terms to get just exp(-K(t - t0)) on the right on the equation. Take logarithms, to get a linear mean function, and then use ols for the linear mean function to get the remaining starting values. After getting the fitted model, draw the fitted mean function on your scatterplot.
+
+Scatterplotista nähdään, että kaikki pituuden arvot ovat alle 200, joten laitetaan L_infin aloitusarvoksi 200. Jaetaan sitten molemmat puolet 200:a ja järjestetään malli niin että oikealla puolella on pelkkä eksponenttilauseke, eli: 
+
+  1-E(Length|Age = t)/200 = exp(-K(t - t0))
+  
+otetaan sitten logaritmit puolittain:
+
+  log(1-E(Length|Age = t)/200) = -K(t - t0) = Kt0 - Kt
+
+Sovitetaan ols lineaariseen odotusarvofunktioon. Yhtälön vasen puoli on selitettävä muuttuja ja koska Kt0 - Kt on odotusarvofunktio, selitetään oikeaa puolta muunnoksella -Age. 
+```{r}
+von_fit <- lm(I(1-(Length/200)) ~ 0 + I(-Age), data=lakemary)
+summary(von_fit)
+```
+Saatiin estimaateiksi K = 0.111561 ja Kt0 = 0.686755, eli t0 = 0.686755/0.111561 = 6.15587. Nyt olemme saaneet aloitusarvot parametreille:
+  
+  L_inf = 200
+  K = 0.111561
+  t0 = 6.15587
+  
+Nyt voimme käyttää epälineaarista regressiota. Asetetaan kuitenkin t0 = 0, koska kuulostaa hassulta, että iän aloitusarvo olisi yli 6, kosta t0:n arvolla kalan odotusarvopituus on 0.
+```{r}
+kalafit <- nls(Length ~ L * (1 - exp(-K * (Age - t0))), data=lakemary, start=list(L=200, K=0.111561, t0=0))
+summary(kalafit)
+```
+Nyt malli konvergoi mukavasti, ja saadaan kivat estimaatit!
+
+Piirretään vielä saatu odotusarvokäyrä scatterplot-kuvaajaan:
+
+```{r}
+g <- with(lakemary, seq(min(Age), max(Age), length=100))
+plot(Length ~ Age, data=lakemary, pch=18)
+lines(g, predict(kalafit, newdata=data.frame(Age=g)), lwd=2, col="red")
+```
+Käyrä on hieno!
+
+
+# 11.2.3 
+Obtain a 95% confidence interval for L_inf using the large sample approximation, and using the bootstrap.
+
+Mallista, jossa oli käytetty estimoimalla saadut parametrinarvot, laskettu luottamusväli: (ymmärtääkseni tämä on large sample approximation?)
+```{r}
+confint(kalafit)
+```
+95% luottamusväliksi saadaan näin [174.3871593 233.3509981].
+Tässä otoskoko on kuitenkin 70 luokkaa, niin voi epäillä onko otoskoko tarpeeksi suuri.
+
+Käytetään bootstrapia:
+```{r}
+set.seed(1234567)
+large.boot <- Boot(kalafit, R=999)
+confint(large.boot)
+```
+Nähdään, että saadaan 95% luottamusväli parametrille L_inf: [173.5037378	252.6687776], se on huomattavasti leveämpi.
+
+	
+
+
+
+

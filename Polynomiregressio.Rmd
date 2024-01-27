@@ -1,0 +1,277 @@
+---
+title: "Polynomiregressio"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Tehtävä 1
+(Data file: lathe1) The data in the file lathe1 are the results of an experiment on characterizing the life of a drill bit in cutting steel on a lathe. Two factors were varied in the experiment, Speed and Feed rate. The response is Life, the total time until the drill bit fails, in minutes. The values of Speed and Feed in the data have been coded by computing
+
+```{r}
+library(alr4)
+library(effects)
+```
+
+
+  Speed = (Actual speed in feet per minute - 900) / 300
+  
+  Feed = (Actual feed rate per minute in thousandths of an inch per revolution - 13) / 6
+  
+The coded variables are centered at zero. Coding has no material effect on the analysis but can be convenient in interpreting coefficient estimates.
+
+## 5.12.1
+Draw a scatterplot matrix of Speed, Feed, Life, and log(Life), the logarithm of tool life. Add a little jittering to Speed and Feed to reveal overplotting. The plot of Speed versus Feed gives a picture of the experimental design, which is called a central composite design. It is useful when we are trying to find a value of the factors that maximizes or minimizes the response. Also, several of the experimental conditions were replicated, allowing for an estimate of variance and lack-of-fit testing. Comment on the scatterplot matrix.
+
+```{r}
+lathe <- lathe1
+lathe$logLife <- log(lathe1$Life)
+jittered_lathe <- data.frame(Feed=jitter(lathe$Feed),Speed=jitter(lathe$Speed), Life=lathe$Life,logLife=lathe$logLife)
+pairs(jittered_lathe, pch=18)
+```
+
+Centra composite design plot muuttujien Speed ja Feed välillä näyttäisi olevan niin kuin kuuluukin. Feed vs. Life ja logLife näyttäisi siltä, että niiden välillä ei ole korrelaatiota suuntaan tai toiseen. Speed sen sijaan näyttäisi olevan negatiivisesti korreloitunut muuttujan Life kanssa, mutta logaritmisesti, minkä kuva Speed vs. logLife osoittaakin: niiden suhde näyttäisi olevan lineaarisesti riippuvainen.
+
+## 5.12.2
+For experiments in which the response is a time to failure or time to event, the response often needs to be transformed to a more useful scale, typically by taking the log of the response, or sometimes by taking the inverse. For this experiment, log scale can be shown to be appropriate (Problem 9.15). Fit the full second-order mean function (5.12)
+
+  E(Y|X1 =x1,X2 =x2)=B0 +B1x1 +B2x2 +B11x1^2 +B22x2^2 +B12x1x2
+  
+to these data using log(Life) as the response. Find the fitted equation, and obtain tests for the quadratic and interaction regressors. Vihje: Voit estimoida polynomiregression tuttuun tapaan lm()-funktiolla, kunhan käytät selittäjiin funktiota poly() tai I().
+
+Sovitetaan polynomiregressio selittämään logLife
+```{r}
+lathe_poly <- lm(logLife ~ Feed + Speed + I(Feed^2) + I(Speed^2) + Feed*Speed, data=lathe)
+summary(lathe_poly)
+```
+
+Mallin estimaatit ovat siis
+```{r}
+summary(lathe_poly)$coeff[,"Estimate"]
+```
+
+Eli sovitettu malli on
+  logLife - 1.18809258 - 0.79022764*Feed - 1.58901925*Speed + 0.41850888*Feed^2 + 0.28807527*Speed^2 - 0.07285788*Feed*Speed
+
+lm testaa t-testillä oletuksia, että neliöidut kertoimet ja yhteisvaikutustermit ovat 0, joten symmarysta huomataan, että neliöidyille Speed ja Feed p-arvot ovat niin pieniä: 0.000964 ja 0.012529 että ne ovat merkitseviä yleisimmillä luottamustasoilla. Niille on siis jo hyvää näyttöä että ne poikkeaisivat nollasta.
+Yhteisvaikutustermille sen sijaan p-arvo on 0.499426 joten se ei vaikuttaisi olevan merkitsevä, ei voida hylätä hypoteesia että sen kulmakerroin on 0.
+
+## 5.12.3
+Draw appropriate summary graphs for the fitted model (esim. effect- plot). If either of the quadratics or the interaction is unnecessary, drop it and refit before drawing graphs.
+
+
+Edellisistä kohdista ja mallin summarysta nähtiin, että yhteisvaikutustermi ei ollut merkitsevä. Jätetään se siis pois uudesta mallista ja jätetään vain polynomikertoimet.
+```{r}
+
+lathe_poly2 <- lm(logLife ~ poly(Feed, degree=2, raw=TRUE) + poly(Speed, degree=2, raw=TRUE), data=lathe)
+
+plot(allEffects(lathe_poly2, confint=FALSE), grid=TRUE)
+
+
+```
+Effect-plotit mallille, josta yhdysvaikutus otettu pois.
+
+
+# Tehtävä 2
+
+Gothic and Romanesque cathedrals (Data file: cathedral) The data file gives Height = nave height and Length = total length, both in feet, for medieval English cathedrals. The cathedrals can be classified according to their architectural style, either Romanesque or the later Gothic style. Some cathedrals have both a Gothic and a Romanesque part, each of differing height; these cathedrals are included twice. Names of the cathedrals are also provided in the file. The data were provided by Stephen Jay Gould based on plans given by Clapham (1934).
+
+## 5.16.1 
+For these data, it is useful to draw separate plots of Length versus Height for each architectural style. Summarize the differences apparent in the graphs in the regressions of Length on Height for the two styles. Include in your graph the fitted simple and quadratic regressions.
+
+Plotataan Height vs. Length tyyleille Romanesque ja Gothic erikseen
+```{r}
+Rom <- cathedral[cathedral$Type == "Romanesque",]
+Got <- cathedral[cathedral$Type == "Gothic",]
+par(mfrow = c(1, 2))
+plot(Height ~ Length, data=Rom, main="Romanesque", pch=18)
+plot(Height ~ Length, data=Got, main="Gothic", pch=18)
+```
+
+Yksinkertaiset ja kvadraattiset mallit
+```{r}
+Rom_simple <- lm(Height ~ Length, data=Rom)
+Got_simple <- lm(Height ~ Length, data=Got)
+Rom_quad <- lm(Height ~ poly(Length, degree=2, raw=TRUE), data=Rom)
+Got_quad <- lm(Height ~ poly(Length, degree=2, raw=TRUE), data=Got)
+```
+
+Lisätään kuvaajiin yksinkertaiset ja kvadraattiset regressiomallit
+```{r}
+par(mfrow = c(1, 2))
+plot(Height ~ Length, data=Rom, main="Romanesque", pch=18)
+abline(Rom_simple)
+curve(predict(Rom_quad,newdata=data.frame(Length=x)),add=T, col="red", lwd=2)
+plot(Height ~ Length, data=Got, main="Gothic", pch=18)
+abline(Got_simple)
+curve(predict(Got_quad,newdata=data.frame(Length=x)),add=T, col="red", lwd=2)
+```
+
+Niin kuin voisi arvatakin, musta viiva on sovitettu yksinkertainen malli ja punainen viiva on kvadraattinen.
+
+## 5.16.2 
+Use the data to obtain tests that verify the visual results from the graphs.
+
+
+Testataan malleja varianssianalyysin avulla
+```{r}
+#summary(Got_simple)
+#summary(Got_quad)
+anova(Rom_simple, Rom_quad)
+anova(Got_simple, Got_quad)
+
+```
+
+Anova testaa mallien "sopivuutta", jossa nollahypoteesi tässä tapauksessa on, että yksinkertainen malli sopii dataan paremmin.
+Ensimmäinen anova on Romanesque malli, ja siinä testisuureen arvo on suurempi, ja p-arvo on merkitsevä (0.09608) 90% merkitsevyystasolla. Tämän testin tulkinta on, että vastahypoteesin malli, eli kvadraattinen malli sopisi paremmin dataan. Myös summary-tulosteesta nähdään, että selitysaste on paljon suurempi kvadraattisessa mallissa.
+Toinen anova (Gothic) ei anna näyttöä nollahypoteesia vastaan, siinä testisuureen arvo on pieni ja p-arvo (0.2659) ei ole merkitsevä, joten tulkinta on, että nollahypoteesin malli (yksinkertainen) olisi sopivampi tässä tapauksessa.
+Kuvia katsomalla voidaan todeta, että testit antavat oikeaa suuntaa.
+
+
+# Tehtävä 3 
+(Weisberg 6.4) (Data file: UN11) With the UN data, consider testing
+NH: lifeExpF - log(ppgdp) + group : log(ppgdp)
+AH: lifeExpF - group + log(ppgdp) + group : log(ppgdp)
+The AH model is the most general model given at (6.10), but the NH is was not given previously.
+
+## 6.4.1 
+Explain in a sentence or two the meaning of the NH model.
+
+NH-mallissa selitetään elinajanodotetta logaritmoidulla ppgdp:llä sekä group-luokittelumuutujan ja log(ppgdp):n yhteisvaikutuksella, eli ajatellaan, että log(ppgdp):n vaikutus joka group-luokkaan on erilainen.
+
+## 6.4.2
+Perform the test and summarize results. Vihje: ?anova, paketista car.
+
+Tallennetaan data uudelleen ja logaritmoidaan ppgdp ja sovitetaan molemmat mallit
+```{r}
+UN <- data.frame(lifeExpF=UN11$lifeExpF, ppgdp=log(UN11$ppgdp), group=UN11$group)
+nollamalliUN <- lm(lifeExpF ~ ppgdp + ppgdp:group, data=UN)
+vastamalliUN <- lm(lifeExpF ~ group + ppgdp + ppgdp*group, data=UN)
+```
+
+
+Testataan nollahypoteesia:
+  NH: lifeExpF - log(ppgdp) + group : log(ppgdp)
+  AH: lifeExpF - group + log(ppgdp) + group : log(ppgdp)
+eli toisin sanoen
+  NH: B1 = 0
+```{r}
+anova(nollamalliUN, vastamalliUN)
+```
+
+Varianssianalyysi antaa näyttöä sille, että nollahypoteesi voitaisiin hylätä 90% merkitsevyystasolla (p-arvo on 0.05564), eli että malli, jossa on group-selittäjä erillisenä mukana toisi lisää selitysvoimaa malliin.
+
+Tällä tavalla ei kuitenkaan normaalisti testata rikkomatta "marginality principlea",
+Jos halutaan testata group-selittäjän vaikutusta, niin verrataan anova-testillä täyttä mallia ja katsotaan ensin, ovatko korkeampien asteiden termit, eli tässä tapauksessa yhteisvaikutustermi, merkitseviä:
+```{r}
+vastamalliUN <- lm(lifeExpF ~ ppgdp + group + ppgdp*group, data=UN)
+anova(vastamalliUN)
+```
+Ja huomataan, että kun testataan main effects -mallia koko malliin, niin yhteisvaikutustermi ei ole merkitsevä selittäjä. Mutta regressori "group"-rivin F-testisuure ja p-arvo testaavat mallia LifeExp - ppgdp malliin LifeExp - ppgdp + group, jolloin nähdään että group on merkitsevä selittäjä, eli malli jossa on group mukana, on parempi malli.
+
+# Tehtävä 4
+(Weisberg 6.9) (Data file: cakes) For the cakes data in Section 5.3.1, we fit the full second-order model,
+
+  E(Y|X1 = x1,X2 = x2)=B0 +B1x1 +B2x1^2 +B3x2 +B4x2^2 +B5x1x2
+
+Compute and summarize the following three hypothesis tests. 
+  NH:B5 = 0 vs. AH:B5 /= 0
+  NH:B2 = 0 vs. AH:B2 /= 0
+  NH:B1 = B2 = B5 = 0 vs. AH:Not all 0
+Vihje: Käytä selittäjiin funktiota I().
+
+Sovitetaan malli
+```{r}
+kakkufit <- lm(Y ~ X1 + I(X1^2) + X2 + I(X2^2) + X1:X2, data=cakes)
+```
+
+Yksittäisten kertoimien -ja niiden yhdisteiden hypoteesin testauksessa on kätevä käyttää linearHypothesis-funktiolla.
+
+NH:B5 = 0 vs. AH:B5 /= 0
+```{r}
+linearHypothesis(kakkufit, c("X1:X2=0"))
+```
+Huomataan että p-arvo on 0.004654 ja saadaan näyttöä nollahypoteesia vastaan, että yhteisvaikutustermin kulmakerroin ei ole 0.
+
+NH:B2 = 0 vs. AH:B2 /= 0
+```{r}
+linearHypothesis(kakkufit, c("I(X1^2)=0"))
+```
+Tässäkin huomataan että p-arvo on 0.004079 ja saadaan näyttöä nollahypoteesia vastaan, että X1:n kvadraattisen termin kulmakerroin ei ole 0.
+
+
+NH:B1 = B2 = B5 = 0 vs. AH:Not all 0
+```{r}
+linearHypothesis(kakkufit, c("X1=0", "I(X1^2)=0", "X1:X2=0"))
+```
+Huomataan että p-arvo on hyvin pieni, joten on vahvaa näyttöä sitä vastaan, että kaikki B1, B2 ja B5 olisivat nollia, vaan ainakin joku niistä poikkeaa nollasta testin valossa.
+
+
+# Tehtävä 5
+
+Testing for lack-of-fit (Data file: MinnLand) Refer to the Minnesota farm sales data introduced in Problem 5.4.
+
+## 6.14.1 
+Fit the regression model log(acrePrice) - year via ols, where year is not a factor, but treated as a continuous predictor. What does this model say about the change in price per acre over time? Call this model A.
+
+```{r}
+land <- data.frame(acrePrice=log(MinnLand$acrePrice), year=MinnLand$year)
+```
+
+```{r}
+modelA <- lm(acrePrice ~ year, data=land)
+summary(modelA)
+```
+
+yearin estimaatti on 0.1005, joten tämän mallin mukaan yhdessä vuodessa eekkerihinta kasvaa noin 0.1 dollaria/eekkeri.
+
+
+
+## 6.14.2
+Fit the regression model via log(acrePrice) - 1 + fyear via ols, where fyear is a factor with as many levels are there are years in the data, including the intercept in the model. What does this model say about the change in price per acre over time? Call this model B. (Hint: fyear is not included in the data file. You need to create it from the variable year.)
+
+```{r}
+land$fyear <- as.factor(land$year)
+modelB <- lm(acrePrice ~ 1 + fyear, data=land)
+summary(modelB)
+```
+
+Tämä malli sanoo, että eekkerihinta kasvaa joka vuosi enemmän: regressioestimaatit kasvavat vuodesta 2003 vuoteen 2009 -0.00155:stä 0.71407:ään, jonka jälkeen kasvu jatkuu suht tasaisena. Erot ovat aika isoja per vuosi, kuin mallissa A.
+
+## 6.14.3
+Show that model A is a special case of model B, and so a hypothesis test of 
+  NH : model A versus AH : model B is reasonable.
+
+Mallissa A niputetaan kaikki vuodet yhteen kategoriaan ja annetaan niille yksi kulmakerroin, jonka pitää jotenkin sopia koko aineistoon. Mallissa B jokainen vuosi saa oman kulmakertoimen.
+
+
+## 6.14.4
+A question of interest is whether or not model A provides an adequate description of the change in log(acrePrice) over time. The hypothesis test of 
+  NH : model A versus AH : model B 
+addresses this question, and it can be called a lack-of-fit test for model A. Perform the test and summarize results.
+
+
+Varianssianalyysi mallien välillä
+```{r}
+anova(modelA, modelB)
+```
+F-testi sanoo että nollahypoteesi hylättäisiin ja malli B olisi parempi.
+
+
+## 6.15
+Continuing with the last problem, suppose you fit the model 
+
+  log(acrePrice) - year + fyear
+
+including year both as a continuous predictor and as a factor. What do you think will happen? Try it and find out if you were right!
+
+```{r}
+modelC <- lm(acrePrice ~ year + fyear, data=land)
+summary(modelC)
+```
+
+Tuntuu siltä, että malli menee ihan sekaisin ja kollineaarisuutta esiintyy, esimerkiksi vuosi 2011 ei saa enää omaa kulmakerrointa. kulmakertoimet ovat merkitseviä, mutta hyvin pieniä.
+

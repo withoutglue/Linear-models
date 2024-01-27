@@ -1,0 +1,339 @@
+---
+title: "Painotettu regressio ja bootstrap"
+output: pdf_document
+---
+
+```{r}
+library(alr4)
+library(nlme)
+library(boot)
+```
+
+# Tehtävä 1
+
+## 7.6.
+(Data file: stopping) The (hypothetical) data in the file give automobile stopping Distance in feet and Speed in mph for n = 62 trials of various automobiles (Ezekiel and Fox, 1959).
+
+## 7.6.1 
+Draw a scatterplot of Distance versus Speed. Explain why this graph supports fitting a quadratic regression model.
+
+Piirretään scatterplot Distance versus Speed
+```{r}
+plot(stopping$Speed, stopping$Distance, pch=18)
+```
+
+Lineaarinen kuvaaja ei näyttäisi sopivan kuvaajaan, riippuvuus näyttäisi olevat kvadraattinen, suurilla nopeuksilla on suhteessa suurempi pysähtymismatka
+
+## 7.6.2
+Fit the quadratic model but with constant variance. Compute the score
+test for nonconstant variance for the alternatives that 
+  (a) variance depends on the mean; 
+  (b) variance depends on Speed; and 
+  (c) variance depends on Speed and Speed^2. Is adding Speed^2 helpful?
+
+Sovitetaan kvadraattinen malli vakiovarianssilla
+```{r}
+stop_fit <- lm(Distance ~ Speed + I(Speed^2), data=stopping)
+```
+
+Plotataan vielä kvadraattinen käyrä
+```{r}
+plot(stopping$Speed, stopping$Distance, pch=18)
+curve(predict(stop_fit,newdata=data.frame(Speed=x)), add=TRUE, col="red", lwd=2)
+```
+Kuvasta näyttäisi, että kvadraattinen malli sopii dataan hyvin
+
+Testataan varianssia keskiarvon funktiona
+```{r}
+ncvTest(stop_fit)
+```
+Testin pieni p-arvo viittaisi ei-vakioiseen varianssiin
+
+Testataan sitten varianssia nopeuden funktiona
+```{r}
+ncvTest(stop_fit, ~ Speed)
+```
+Edelleen testin tulkinta varianssille on, että varianssi ei olisi vakio
+
+Lisätään vielä kvadraattinen termi
+```{r}
+ncvTest(stop_fit, ~ Speed + I(Speed^2))
+```
+Tulos on entistä merkitsevämpi että nollahypoteesi hylättäisiin. Speed^2:n lisääminen lisää merkitsevyyttä eli kombinaation mukana homoskedastisuutta on enemmän.
+
+## 7.6.3 
+Refit the quadratic regression model assuming Var(Distanc|Speed) = Speed*Sigma^2
+
+
+Sovitetaan wls painoilla
+```{r}
+stop_fit_w <- lm(Distance ~ Speed + I(Speed^2), data=stopping, weights = 1/Speed)
+```
+
+Tulostus
+```{r}
+summary(stop_fit_w)
+```
+
+
+## 7.6.4 
+Based on the unweighted model, use a sandwich estimator of variance to correct for nonconstant variance. Compare with the results of the last subproblem.
+
+
+```{r}
+hccm(stop_fit, type="hc3")
+```
+
+tehdään t-testi adjustetulla varianssilla (HC3) ja verrataan tuloksia edellisen tehtävän mallin kanssa, jossa eli painotus
+```{r}
+library(lmtest)
+coeftest(stop_fit, vcov=hccm)
+summary(stop_fit_w)$coef
+```
+Regressioestimaatit ovat samat. Keskivirhe on pienempi vakiotermin estimaatille kun varianssi korjataan HC3:lla ja Speedille ja sen kvadraattiselle termille suurempi. HC3 myös suurentaa p-arvoja huomattavasti.
+
+
+## 7.6.5 
+Fit the unweighted quadratic model, but use a case resampling bootstrap to estimate standard errors, and compare with the previous methods.
+
+funktio joka laskee keskivirheet samplesta
+```{r}
+se.func <- function(d,i){
+  malli <- lm(Distance ~ Speed + I(Speed^2), data=d[i,])
+  
+  se <- summary(malli)$coef[,"Std. Error"]
+  return(se)
+}
+```
+
+Tehdään bootstrap
+```{r}
+boot.stand <- boot(data = stopping, statistic = se.func, R = 1000)
+```
+
+tulostetaan bootstrappaamalla saadut tulokset
+```{r}
+boot.stand
+```
+
+```{r}
+summary(stop_fit)$coef
+```
+Bootstrap-tulosteessa bias on hyvin pieni, joten bootsrappaamalla saadut keskivirheet ovat lähellä ols estimaattien keskivirheitä.
+
+# Tehtävä 2
+
+## 7.7.
+
+(Weisberg 7.7) Galton’s sweet peas (Data file: galtonpeas). Many of the ideas of regression first appeared in the work of Sir Francis Galton (1822–1911) on the inheritance of characteristics from one generation to the next. In Galton (1877), he discussed experiments on sweet peas. By comparing the sweet peas produced by parent plants to those produced by offspring plants, he could observe inheritance from one generation to the next. Galton categorized parent plants according to the typical diameter of the peas they produced. For seven size classes from 0.15 to 0.21 inches, he arranged for each of nine of his friends to grow 10 plants from seed in each size class; however, two of the crops were total failures. A summary of Galton’s data were later published in Pearson (1930). The data file includes Parent diameter, Progeny diameter, and SD the standard deviation of the progeny diameters. Sample sizes are unknown but are probably large.
+
+## 7.7.1 
+Draw the scatterplot of Progeny versus Parent.
+
+
+```{r}
+plot(Progeny ~ Parent, data=galtonpeas)
+```
+Lineaarisuutta on selkeästi läsnä
+
+## 7.7.2 
+Assuming that the standard deviations given are population values, compute the weighted regression of Progeny on Parent. Draw the fitted mean function on your scatterplot. Vihje: voit tehdä painotetun pns-estimoinnin tutulla lm()-funktiolla. Ks. miten dokumentaatiosta ?lm.
+
+Sovitetaan malli painoilla 1/SD^2 ja vertailun vuoksi tavallinen ols
+```{r}
+peas_fit <- lm(Progeny ~ Parent, data=galtonpeas, weights = 1/SD^2)
+peas_normal <- lm(Progeny ~ Parent, data=galtonpeas)
+```
+
+Plotataan arvot ja piirretään suorat
+```{r}
+plot(Progeny ~ Parent, data=galtonpeas)
+abline(peas_fit)
+abline(peas_normal, col="red")
+```
+punaisella wls-suora ja mustalla ols-suora
+
+Estimaatit ovat:
+```{r}
+summary(peas_fit)$coef
+summary(peas_normal)$coef
+```
+Nähdään, että malleissa on hieman eroa
+
+## 7.7.3 
+Galton took the average size of all peas produced by a plant to determine the size class of the parental plant. Yet for seeds to represent that plant and produce offspring, Galton chose seeds that were as close to the overall average size as possible. Thus, for a small plant, the exceptional large seed was chosen as a representative, while larger, more robust plants were represented by relatively smaller seeds. What effects would you expect these experimental biases to have on 
+  (1) estimation of the intercept and slope and 
+  
+Voisi odottaa, että tällä tavoin valittuna kulmakertoimen estimaatti olisi pienempi, koska suurten kasvien jälkeläiset olisivat keskimäärin pienempiä ja pienten jälkeläiset suurempia, joka pienentäisi myös vakiotermin estimaattia.
+
+  (2) estimates of error?
+
+Virheen estimaattien voisi olettaa olevan pienempiä, eli esimerkiksi luottamusväleiksi tulisi pienempiä välejä, koska valituilla jälkeläisillä olisi pienempi hajonta.
+
+
+# Tehtävä 3
+
+## 7.8.
+(Weisberg 7.8) Jevons’s gold coins (Data file: jevons) The data in this example are deduced from a diagram in Jevons (1868) and provided by Stephen M. Stigler. In a study of coinage, Jevons weighed 274 gold sovereigns that he had collected from circulation in Manchester, England. For each coin, he recorded the weight after cleaning to the nearest 0.001 g, and the date of issue. The data file includes Age, the age of the coin in decades, n, the number of coins in the age class, Weight, the average weight of the coins in the age class, SD, the standard deviation of the weights. The minimum Min and maximum Max of the weights are also given. The standard weight of a gold sovereign was 7.9876 g; the minimum legal weight was 7.9379 g.
+
+## 7.8.1 
+Draw a scatterplot of Weight versus Age, and comment on the applicability of the usual assumptions of the linear regression model. Also draw a scatterplot of SD versus Age, and summarize the information in this plot.
+
+Plotataan paino vs ikä
+```{r}
+plot(Weight ~ Age, data=jevons)
+```
+Perinteisen lineaarisen mallin oletukset ovat:
+  - vasteen arvot ovat toisistaan riippumattomia
+  - Selittäjien arvot ovat toisistaan riippumattomia
+  - vasteen arvot ovat samasta jakaumasta
+  - Virhetermit ovat jakautuneet odotusarvolla nolla ja vakiovarianssilla
+  - Suuria poikkeavia havaintoja ei ole
+
+Ei ole syytä epäillä, että vasteen ja selittäjien arvot olisivat riippuvaisia muista vasteen ja selittäjien arvoista ja vasteen arvot olisivat eri jakaumista.
+
+Plotataan ols-mallin residuaalikuvaajat
+```{r}
+plot(lm(Weight ~ Age, data=jevons))
+```
+
+On ehkä syytä epäillä ei-vakioista varianssia, erityisesti kuvasta 3 nähdään hienoinen nouseva trendi, vaikka odotusarvon pitäisi olla vakio ja residuaalien sijoittua tasaisesti jonkin suoran molemmille puolille.
+  
+  
+Plotataan vielä SD vs Age
+```{r}
+plot(SD ~ Age, data=jevons)
+```
+Mielenkiintoisesti keskihajonta kasvaa lähes lineaarisesti vuosien kasvaessa.
+
+## 7.8.2 
+To fit a simple linear regression model with Weight as the response, wls
+should be used with variance function Var(Weight|Age) = n*sigma^2 /SD^2. Sample sizes are large enough to assume the SD are population values. Fit the wls model.
+
+Sovitetaan wls malli painotuksilla
+```{r}
+coin_fit <- lm(Weight ~ Age, data=jevons, weights = (SD^2)/n)
+```
+
+Plotataan wls suora kuvaan
+```{r}
+plot(Weight ~ Age, data=jevons)
+abline(coin_fit)
+```
+
+```{r}
+summary(coin_fit)$coef
+```
+
+## 7.8.3 
+Is the fitted regression consistent with the known standard weight for a new coin?
+
+uuden kolikon standardipaino on 7.9876 g. Regressiovakiotermi on 8.0027 g, mikä on iso heitto ylöspäin standardipainossa.
+
+## 7.8.4 
+For previously unsampled coins of Age = 1, 2, 3, 4, 5, estimate the probability that the weight of the coin is less than the legal minimum. (Hints: The standard error of prediction is the square root of the sum of two terms, the assumed known variance of an unsampled coin of known Age, which is different for each age, and the estimated variance of the fitted value for that Age; the latter is computed from the formula for the variance of a fitted value. You should use the normal distribution rather than a t to get the probabilities.)
+
+Estimoidaan siis todennäköisyys, että X < 7.9379 g.
+
+```{r}
+predict(coin_fit)
+```
+
+
+## 7.8.5 
+Determine the Age at which the predicted weight of coins is equal to the legal minimum, and use the delta method to get a standard error for the estimated age. This problem is called inverse regression, and is discus- sed by Brown (1993). Vihje: delta-menetelmä on helppo implementoida itse käyttämällä Weisbergin kaavaa (7.19) sivulla 173, mutta tehtävän voi myös ratkaista jonkin R-paketin tarjoamalla valmiilla funktiolla.
+
+
+# Tehtävä 4
+
+## 7.9.
+Bootstrap for a median (Data file: UN11)
+
+```{r}
+UN <- UN11
+```
+
+
+## 7.9.1 
+Find a 99% confidence interval for the mean of log(fertility). Then, obtain an approximate 99% confidence interval for the median of fertility by exponentiating the end points of the interval for the mean of log(fertilty).
+
+1. Bootstrapataan käsin keskiarvo log(fertility):lle
+```{r}
+logfert <- log(UN$fertility)
+keskiarvot <- vector(length = 1000)
+
+for(x in 1:1000){
+  
+  tama_sample <- sample(logfert, length(logfert), replace = TRUE)
+  m <- mean(tama_sample)
+  keskiarvot[x] <- m
+  
+}
+
+```
+
+```{r}
+hist(keskiarvot)
+```
+
+99% luottamusväli keskiarvolle:
+```{r}
+keskiarvot <- keskiarvot[order(keskiarvot)]
+alaraja <- keskiarvot[round(0.005*1000)]
+ylaraja <- keskiarvot[round(0.995*1000)]
+alaraja
+ylaraja
+```
+
+99% luottamuväli fertilityn mediaanille:
+```{r}
+exp(alaraja)
+exp(ylaraja)
+```
+
+
+## 7.9.2 
+Use the bootstrap to obtain a 99% confidence interval for the median of fertility. Compare with the interval for the mean of fertility from Problem 7.9.1.
+Lisätehtävä: Jos käytit tehtävässä 7.9.2 jotakin valmista bootstrap-funktiota, niin implementoi bootstrap-algoritmi itse Weisbergin s.175 ohjeiden avulla. Jos implementoit bootstrapin itse, niin kokeile saatko samansuuntaisia tuloksia jollakin valmiilla funktiolla.
+
+Kokeillaan tehdä mediaanifunktio boot-funktiolle
+```{r}
+fert <- UN$fertility
+func.medi <- function(data, indices){
+  return(median(fert[indices]))
+}
+```
+
+Bootstrap
+```{r}
+fert.boot <- boot(data=fert, statistic = func.medi, R = 1000)
+```
+
+
+```{r}
+boot.ci(fert.boot, conf=0.99)
+```
+boot-paketin funktiolla laskettuna luottamusvälit ovat yhtä leveitä, mutta matalampia.
+
+
+# Tehtävä 5
+
+## 7.12.
+(Weisberg 7.12) (Data file: mile) The data file gives the world record times for the one-mile run (Perkiömäki, 1997). For males, the records are for the period from 1861 to 2003, and for females, for the period 1967–2003. The variables in the file are Year, year of the record, Time, the record time, in seconds, Name, the name of the runner, Country, the runner’s home country, Place, the place where the record was run (missing for many of the early records), and Gender, either male or female.
+
+## 7.12.1 
+Draw a scatterplot of Time versus Year, using a different symbol for men and women. Comment on the graph.
+
+## 7.12.2 
+Fit a regression model with intercepts and slopes for each gender. Provide an interpretation of the slopes.
+
+## 7.12.3
+Find the year in which the female record is expected to be 240 seconds, or 4 minutes. This will require inverting the fitted regression equation. Use the delta method to estimate the standard error of this estimate.
+
+## 7.12.4 
+Using the model fit in Problem 7.12.2, estimate the year in which the female record will match the male record, and use the delta method to estimate the standard error of the year in which they will agree. Comment on whether you think using the point at which the fitted regression lines cross is a reasonable estimator of the crossing time.
+
+
+
+
+
