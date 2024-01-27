@@ -1,0 +1,384 @@
+---
+title: "Tehtävät 2"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r pressure, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(alr4)
+library(tidyverse)
+```
+
+
+# Tehtävä 1
+```{r}
+UN <- data.frame(fertility=UN11$fertility, ppgdp=log(UN11$ppgdp), pctUrban=UN11$pctUrban)
+```
+
+## 3.2.1 
+Examine the scatterplot matrix for (fertility, log(ppgdp), pctUrban), and comment on the marginal relationships.
+
+Scatterplot matrix
+```{r}
+pairs(UN, pch=18)
+```
+
+Vastemuuttuja fertility näyttäisi olevan negatiivisesti korreloitunut sekä selittäjän log(ppgdp) kanssa, että pctUbanin kanssa. fertility pienenee kun log(ppgdp) j pctUrban kasvaa. Selittäjien välillä näyttäisi myös olevan positiivinen korrelaatio, eli kun pctUrban kasvaa niin myös log(ppgdp) kasvaa.
+
+## 3.2.2 
+Fit the two simple regressions for fertility - log(ppgdp) and for fertility - pctUrban, and verify that the slope coefficients are significantly different from 0 at any conventional level of significance.
+
+```{r}
+UN_fit <- lm(fertility ~ ppgdp + pctUrban, data=UN)
+summary(UN_fit)$coeff
+```
+
+Estimaatti molemmille selittäjille negatiivinen ja p-arvo selittäjälle log(ppgdp) on merkitsevä kaikilla merkitsevyystasoilla, p-arvo selittäjälle pctUrban on merkitsevä 90% merkitsevyystasolla.
+
+## 3.2.3 
+Obtain the added-variable plots for both predictors. Based on the added-variable plots, is log(ppgdp) useful after adjusting for pctUrban, and similarly, is pctUrban useful after adjusting for log(ppgdp)? Compute the estimated mean function with both predictors included as regressors, and verify the findings of the addedvariable plots.
+
+Malli jossa molemmat selittäjät
+```{r}
+UN_fit <- lm(fertility ~ ppgdp + pctUrban, data=UN)
+```
+
+Added variable -kuvaajat
+```{r}
+fer_on_ppgdp <- lm(fertility ~ ppgdp, data=UN)
+fer_on_pct <- lm(fertility ~ pctUrban, data=UN)
+par(mfrow=c(1, 2))
+plot(UN$ppgdp, UN$fertility, pch=18, xlab="ppgdp", ylab="fertility")
+abline(fer_on_ppgdp, col="blue", lwd=2)
+plot(UN$pctUrban, UN$fertility, pch=18, xlab="pctUrban", ylab="fertility")
+abline(fer_on_pct, col="blue", lwd=2)
+avPlots(UN_fit, pch=18, grid=FALSE)
+```
+
+Yllä vasemmalla on malli hedelmällisyys selitettynä log(ppdgp):llä ja alla vasemmalla added-variable -kuvaaja sovitettuna pctUrban-selittäjän kanssa. Vastaavasti Yllä oikealla on hedelmällisyys selitettynä pctUrbanilla ja alla oikealla sovitettuna log(ppdgp)-selittäjän kanssa.
+
+Huomataan, että log(ppdgp) on yhtä merkittävä kun se sovitetaan pctUrbanin kanssa (vasemmat kuvaajat) eli sen kulmakertoimen estimaatti on lähes yhtä suuri. Mutta pctUrban lakkaa olemasta merkittävä, kun se sovitettaan log(ppdgp):n kanssa (oikeat kuvaajat), eli sen kulmakertoimen estimaatti "tippuu" lähes nollaan.
+
+
+```{r}
+summary(UN_fit)$coeff
+```
+
+Mallissa jossa on molemmat selittäjät pctUrbanin estimaatti on todellakin lähellä nollaa: -0.0004392792
+
+
+## 3.2.4 
+Show that the estimated coefficient for log(ppgdp) is the same as the estimated slope in the added-variable plot for log(ppgdp) after pctUrban. This correctly suggests that all the estimates in a multiple linear regression model are adjusted for all the other regressors in the mean function.
+
+Plotataan siis mallien fertility-on-pctUrban ja log(ppgdp)-on-pctUrban residuaalit toisiaan vastaan ja sovitetaan siihen suora:
+```{r}
+residuaalit_y <- fer_on_pct$residuals
+pp_on_pct <- lm(ppgdp ~ pctUrban, data=UN)
+residuaalit_x <- pp_on_pct$residuals
+added_v <- lm(residuaalit_y ~ residuaalit_x)
+```
+
+```{r}
+summary(added_v)$coeff
+summary(UN_fit)$coeff
+```
+
+Huomataan, että kulmakerroin residuaaleihin sovitetussa suorassa (residuaalit_x) on täysin sama kuin täyden mallin kulmakertoimen estimaatti: -0.61514
+
+## 3.2.5 
+Show that the residuals in the added-variable plot are identical to the residuals from the mean function with both predictors.
+
+Plotataan av-plotin residuaalit koko mallin residuaaleja vastaan
+```{r}
+residuals_av <- added_v$residuals
+koko_mallin_res <- UN_fit$residuals
+plot(residuals_av, koko_mallin_res, xlab="Added variable plot", ylab="Koko malli", main="Residuaalit")
+abline(0, 1, col="blue", lwd=2)
+```
+
+Huomataan, että residuaalit ovat samat, ne sijoittuvat suoralle y = x
+
+
+## 3.2.6 
+Show that the t-test for the coefficient for log(ppgdp) is not quite the same from the added-variable plot and from the regression with both regressors, and explain why they are slightly different.
+
+Tulostetaan estimoidut parametrit av-plotista ja koko mallista
+```{r}
+summary(added_v)$coeff
+summary(UN_fit)$coeff
+```
+
+Huomataan että t-testisuureen arvot ovat melkein samat: -9.612589 ja -9.5881608
+ja p-arvot t-testeillä ovat samaa kertaluokkaa: 3.504065e-18 ja 4.257647e-18 ja molemmat ovat edelleen hyvin merkittäviä kaikilla merkitsevyystasoilla. Pieni ero estimaateissa johtuu mallien eri vapausasteista.
+
+
+
+# Tehtävä 2
+(Data file: water) Refer to the data described
+in Problem 1.5. For this problem, consider the regression problem with response BSAAM, and three predictors as regressors given by OPBPC, OPRC, and OPSLAKE.
+
+Tehtävän data
+```{r}
+wdata <- data.frame(BSAAM=water$BSAAM, OPBPC=water$OPBPC, OPRC=water$OPRC, OPSLAKE=water$OPSLAKE)
+```
+
+## 3.6.1 
+Examine the scatterplot matrix drawn for these three regressors and the response. What should the correlation matrix look like (i.e., which correlations are large and positive, which are large and negative, and which are small)? Compute the correlation matrix to verify your results.
+
+Piirretään scatterplotmatriisi
+```{r}
+pairs(wdata, pch=18)
+```
+
+Huomataan, että kaikkien muuttujien valiset korrelaatiot ovat positiivisia ja kaikkien välillä on suhteellisen voimakas riippuvuus, eli oletettavasti kaikkien välinen korrelaatio on lähellä ykköstä. Kaikkien hajonta on suhteellisen pieni, niin että niiden välinen lineaarinen riippuvuus on aika voimakas.
+
+Lasketaan vielä korrelaatiomatriisi
+```{r}
+cor(wdata)
+```
+
+Katsomalla korrellaatiomatriisin arvoja huomataan että kuvista tulkitut riippuvuudet olivat oikeassa: korrelaatiot ovat positiivisia ja hyvin lähellä ykköstä, eli kaikkien välillä on voimakas positiivinen korrelaatio.
+
+## 3.6.2 
+Get the regression summary for the regression of BSAAM on these three regressors. Explain what the “t-values” column of your output means. 
+
+```{r}
+weather_fit <- lm(BSAAM ~ OPBPC + OPRC + OPSLAKE, data=wdata)
+summary(weather_fit)$coeff
+```
+
+Sarakkeen "t value" arvo on Studentin t-testisuureen arvo, kun testataan hypoteesia (riippumatta muista resgressiokertoimista) regressiokertoimen merkitsevyydestä mallissa, eli hypoteesia H0: B_i = 0. Studentin t-testisuureen tapauksessa, kun testataan sen poikkeavuutta nollasta, se on siis normaalijakautunut estimaattori (estimaatti) jaettuna sen keskivirheellä, eli tässä tapauksessa sarakkeen "Estimate" arvo jaettuna sarakkeen "Std. Error" arvolla. Testisuureen arvo on sitä suurempi, mitä kauempana muuttujan arvo on nollahypoteesista.
+
+## Lisätehtävä
+a: Tutki kohdassa 3.6.2 ei-merkitsevän p-arvonsaanutta muuttujaa  added-variable plotin avulla.
+
+Edellisestä kohdasta nähdään, että ei-merkitsevän p-arvon saanut muuttuja on "OPBPC" ja sen p-arvo on 0.9.359896. 
+
+Piirretään plotit muuttujalle OPBPC, eli malli jossa on selittäjän vain OPBPC ja OPBPC sovitettuna muihin (avplot)
+```{r}
+BSAAM_on_OPBPC <- lm(BSAAM ~ OPBPC, data=wdata)
+par(mfrow=c(1, 2))
+plot(wdata$OPBPC, wdata$BSAAM, pch=18, main="vain OPBPC")
+abline(BSAAM_on_OPBPC, col="blue", lwd=2)
+avPlot(weather_fit, "OPBPC", pch=18, grid=FALSE, main="OPBPC + sovitus muiden kanssa")
+
+```
+
+Huomataan, että kun lisätään muut selittäjät malliin, OPBPC:n selitysvoima mallissa tippuu huomattavasti, eli sen kulmakerrtoimen estimaatti muuttuu hyvin jyrkästä lähelle nollaa.
+
+
+# Tehtävä 3
+
+(Data file: MinnLand) The data file includes information on nearly every agricultural land sale in the six major agricultural regions of Minnesota for the period 2002–2011. The data are from the Minnesota Department of Revenue and were provided by Steven Taff. Two of the variables in the data are acrePrice, the selling price per acre adjusted to a common date within a year, and year, the year of the sale. All the variables are described in Table 5.8.
+
+
+## 5.4.1
+Draw boxplots of log(acrePrice) versus year, and summarize the information in the boxplots. In particular, housing sales prices in the United States were generally increasing from about 2002–2006, and then began to fall beginning in 2007 or so. Is that pattern apparently repeated in Minnesota farm sales?
+
+Piirretään laatikkokuvaajat maatilojen hinnoista joka vuodelle. Logaritmoidaan hinnat ja tehtävän 2. kohtaa varten muutetaan vuodet luokittelumuuttujiksi
+```{r}
+landdata <- data.frame("acrePrice"=log(MinnLand$acrePrice), "year"=as.factor(MinnLand$year))
+boxplot(acrePrice~year,
+data=landdata,
+main="Laatikkokuvaajat joka vuodelle",
+col="orange",
+border="brown"
+)
+```
+
+Asuntojen hintavaihtelu Yhdysvalloissa näkyy myös vuosien maatilojen hinnoissa 2002-2006. Kuitenkaan Asuntojen hintojen tippuminen vuodesta 2007 eteenpäin ei näy maatilojen hinnoissa, päinvastoin maatilojen hinnat näyttäisivät viellä nousevan. Pieni pudotus maatilojen hinnoissa on nähtävissä vuodesta 2010 vuoteen 2011. 
+
+## 5.4.2 
+Fit a regression model with log(acrePrice) as the response and a factor representing the year. Provide an interpretation of the estimated parameters. Interpret the t-statistics. (Hint: Since year is numeric, you may need to turn it into a factor.)
+
+```{r}
+land_fit <- lm(acrePrice ~ year, data=landdata)
+summary(land_fit)$coeff
+```
+
+Vakiotermin estimaatti on otoskeskiarvo ensimmäiselle luokalle eli vuodelle 2002. Muiden vuosien estimaatit ovat ero sen vuoden otoskeskiarvon ja vertailuvuoden, eli vuoden 2002, otoskeskiarvon välillä.
+Sarakkeen "t value" arvot ovat Studentin t-testisuureen arvot, kun testataan nollahypoteeseja: "Vuoden 2002 odotusarvo on 0" (rivi Intercept)
+"Vuoden i odotusarvon ja vuoden 2002 odotusarvon erotus on 0" (rivi i, eli muut rivit)
+Mitä suurempi testisuureen arvo, sitä kauempana vertailuryhmän (vuosi 2002) odotusarvo on nollasta ja sitä suurempi ero muiden vuosien odotusarvolla on vuoden 2002 odotusarvosta.
+
+## 5.4.3
+Fit the regression model as in the last subproblem, but this time omit the intercept. Show that the parameter estimates are the means of log(acrePrice) for each year. The standard error of the sample mean in year j is SDj/sqrt(nj), where SDj and nj are the sample standard deviation and sample size of the for the j:th year. Show that the standard errors of the regression coefficients are not the same as these standard errors and explain why they are different.
+
+
+Sovitetaan regessiomalli dataan, selittäjinä vuodet luokittelumuutujina, mutta otetaan mallista pois vakiotermi. Tulostetaan ensin mallin regressiokertoimien estimaatit ja sitten joka vuodelle keskiarvot hinnoista log(acrePrice) (käytetty tidyverse-paketin funktioita luokittelemaan data)
+```{r}
+landwointer <- lm(acrePrice ~ 0 + year, data=landdata)
+summary(landwointer)$coeff
+as.data.frame(summarise(group_by(landdata,year), "mean"=mean(acrePrice)))
+```
+
+Huomataan, että regressiokertoimien estimaatit ovat täysin samat kuin vuosien keskiarvot.
+
+
+Lasketaan nyt kaavan mukaiset keskivirheet.
+```{r}
+summary(landwointer)$coeff[,c(1,2)]
+as.data.frame(summarise(group_by(landdata,year), "mean"=mean(acrePrice), "se"=sd(acrePrice)/sqrt(length(acrePrice))))
+```
+
+Taulukoista nähdään, että näin lasketut keskivirheet poikkeavat mallin regressiokerrointen keskivirheistä. Erot johtuvat eroista vapausasteissa.
+
+
+# Tehtävä 4
+(Data file: MinnLand) Refer to Problem 5.4. Another variable in this data file is the region, a factor with six levels that are geographic identifiers.
+
+## 5.10.1
+Assuming both year and region are factors, consider the two mean functions given in Wilkinson–Rogers notation as:
+(a) log(acrePrice) - year + region
+(b) log(acrePrice) - year + region + year : region
+Explain the difference between these two models (no fitting is required for this problem).
+
+ensimmäisessä mallissa ovat luokitteluselittäjät erikseen, toisessa mallissa on niiden yhteisvaikutukset mukana. Ensimmäinen malli tulkitsee selittäjät itsenäisinä ja erillisinä, toisen mallin oletukset ovat, että vuosittaiset maatilojen hinnat vaihtelevat myös alueittain. Ensimmäinen malli on ns. main effects model.
+
+## 5.10.2
+Fit model (b). Examining the coefficients of this model is unpleasant because there are so many of them, and summaries either using graphs or using tests are required. We defer tests until the next chapter. Draw an effects plot for the year by region interaction and summarize the graph or graphs. Vihje: Voit piirtää effect-plotit itse, mutta vaihtoehtoisesti voit myös ratkaista tehtävän etsimällä sopivat työkalut tarjoavan R-paketin.
+
+
+Sovitetaan malli ja piirretään effect plotit vuosittain joka alueelle erikseen käyttämällä R-pakettia "effects"
+```{r}
+landdata$region <- MinnLand$region
+landeffect_fit <- lm(acrePrice ~ year + region + year*region, data=landdata)
+summary(landeffect_fit)
+```
+
+```{r}
+library(effects)
+plot(predictorEffect("year",landeffect_fit))
+```
+
+Kuvaajista nähdään, että alueiden välillä on eroavaisuuksia. Vuosien välinen suhteellinen vaikutus pysyy jotakuinkin samana joka alueella, mutta esimerkiksi huomataan, että alueella "Northwest" hinnat ovat olleet hyvin alhaalla verrattuna muihin alueisiin. Myös alueella "West central" on selvästi alemmat hinnat.
+
+
+# Tähtävä 5
+(Data file: MinnLand) This is a continuation of Problem 5.10. Another variable in the MinnLand data is the type of financing for the sale, a factor with levels seller financed for sales in which the seller provides a loan to the buyer, and title transfer in which financing of the sale does not involve the seller.
+
+## 5.11.1
+Add the variable financing to model (b) in Problem 5.10, and obtain and interpret a 95% confidence interval for the effect of financing.
+
+Lisätään malliin muuttuja "financing" ja lasketaan tasojen "seller_financed" ja "title_transfer" 95% luottamusvälit. SItten piirretään effect plot
+
+```{r}
+landdata$financing <- MinnLand$financing
+landeffect_fit2 <- lm(acrePrice ~ year + region + financing + year*region, data=landdata)
+summary(predictorEffect("financing",landeffect_fit2))
+plot(predictorEffect("financing",landeffect_fit2))
+
+```
+
+Tulosteesta nähdään, että tason "title_transfer" 95% luottamusväli on [7.707927, 7.715291] ja tason "seller_financed" luottamusvälin on [7.594526, 7.635791]
+
+
+## 5.11.2
+Comment on each of the following statements:
+1. Seller financing lowers sale prices.
+
+Kyllä. Kuvasta nähdään että tasolla "seller_financed" myyntihinta on alhaisempi.
+myös financed-selittäjän estimaatti on negatiivinen: -0.092769 ja se on tilastollisesti merkitsevä, joten kategorisen selittäjän "financed" tulkinta on, että kun vaihdetaan luokasta "title_transfer" luokkaan "seller_financed", myyntihinta tippuu. Pitää olla tietysti varovainen syy-seuraussuhteiden tulkinnassa.
+
+
+2. Seller financing is more likely on lower-priced property transactions.
+
+Kuvasta näkyy, että näin on, tasolla "seller_financed" myyntihinta on alhaisempi.
+
+
+# Tehtävä 6
+Sex discrimination (Data file: salary) The data file concerns salary and other characteristics of all faculty in a small Midwestern college collected in the early 1980s for presentation in legal proceedings for which discrimination against women in salary was at issue. All persons in the data hold tenured or tenure track positions; temporary faculty are not included. The variables include degree, a factor with levels PhD and MS; rank, a factor with levels Asst, Assoc, and Prof3; sex, a factor with levels Male and Female; Year, years in current rank; ysdeg, years since highest degree, and salary, academic year salary in dollars.
+
+## 5.17.1
+Get appropriate graphical summaries of the data and discuss the graphs.
+
+piirretään ensin scatterplot matriisi vuosista ja palkoista
+```{r}
+pairs(salary[,c(4,5,6)])
+```
+
+Yleisesti näyttäisi että vuosien (sekä työvuosien ja tutkinnon jälkeisten vuosien) ja palkan välillä on positiivinen riippuvuus, kuten voisi olettaakin.
+
+piirretään seuraavaksi laatikkokuvaajat palkoista sukupuolittain
+```{r}
+boxplot(salary~sex,
+data=salary,
+main="Laatikkokuvaajat palkoista sukupuolittain",
+col="orange",
+border="brown"
+)
+```
+
+Tämän perusteella näyttäisi siltä, että miesten palkat ovat  keskimäärin suuremmat.
+
+lisätään vielä laatikkokuva, jossa on muuttujana eri työasteet
+```{r}
+#barplot(table(salary[,c("sex","rank")]))
+boxplot(salary~rank + sex,
+data=salary,
+main="Laatikkokuvaajat palkoista eri työasteissa ja sukupuolittain",
+col="orange",
+border="brown"
+)
+```
+
+Kuten voisi olettaa, professoreilla on kummassakin sukupuolessa suurimmat palkat, ja assistenteilla pienimmät. Lisäksi luokissa "associate" ja "professor" on naisilla vähän pienempi palkka. Hauska yksityiskohta on, että kaikista suurin professorin palkka näyttäisi olevan naisprofessorilla.
+
+
+```{r}
+
+```
+
+## 5.17.2
+Test the hypothesis that the mean salary for men and women is the same. What alternative hypothesis do you think is appropriate?
+
+Testataan ensin hypoteesia pelkästään selittäjällä sex. Vastahypoteesina voisi olla vaikka että naisten odotusarvo palkoissa on pienempi kuin miesten.
+```{r}
+salary_fit_sex <- lm(salary ~ sex, data=salary)
+summary(salary_fit_sex)
+```
+
+lm testaa kaksisuuntaista hypoteesia luokille niin, että referenssiluokan (miehet) odotusarvo on 0, ja naisten luokan odotusarvoa miesten odotusarvoon. Tämän testin tulosten perusteella naisten keskiarvo on alhaisempi kuin miesten, mutta se saa tilastollista merkitsevyyttä vain 90% luottamustasolla, ei enää 95% luottamustasolla. Yksisuuntaisen testin p-arvo saadaan jakamalla p-arvo kahdella, koska t-jakauma on symmetrinen. Tällöin yksisuuntaisen hypoteesin tilastollinen merkitsevyys kasvaa, ja meillä on vahvempaa näyttöä, että naisten palkkojen odotusarvo olisi pienempi, kuin miesten.
+
+lisätään nyt kaikki selittäjät malliin, ja luokittelumuuttujien yhteisvaikutukset
+```{r}
+salary_fit_all <- lm(salary ~ sex + rank + degree + year + ysdeg + sex*rank*degree, data=salary)
+summary(salary_fit_all)
+```
+
+Kun lisätään malliin muut selittäjät, sukupuoli lakkaa olemasta merkitsevä selittäjä. Mallin selitysaste kasvaa huomattavasti.
+
+## 5.17.3
+Assuming no interactions between sex and the other predictors, obtain a 95% confidence interval for the difference in salary between males and females.
+
+Sovitetaan malli, jossa muuttujan "sex" yhteisvaikutus muihin muuttujiin tiputetaan pois.
+```{r}
+salary_fit3 <- lm(salary ~ sex + rank + degree + year + ysdeg, data=salary)
+summary(salary_fit3)
+```
+
+lasketaan 95% luottamusvälit mallissa, jossa on vain selittäjänä "sex" ja mallissa jossa on kaikki muuttujat.
+```{r}
+confint(salary_fit_sex, level=0.95)
+confint(salary_fit3, level=0.95)
+```
+
+Mallissa jossa on vain sex, 95% luottamusväli naisten ja miesten erolle on [-6970.55,   291.257]
+Mallissa jossa on mukana myös muut selittäjät, 95% luottamusväli naisten ja miesten erolle on [-697.8183, 3030.56452]
+
+
+## 5.17.4 
+Finkelstein (1980), in a discussion of the use of regression in discrimination cases, wrote, “[a] variable may reflect a position or status bestowed by the employer, in which case if there is discrimination in the award of the position or status, the variable may be ‘tainted.’ ” Thus, for example, if discrimination is at work in promotion of faculty to higher ranks, using rank to adjust salaries before comparing the sexes may not be acceptable to the courts. Exclude the variable rank, refit, and summarize.
+
+Poistetaan mallista selittäjä "rank" ja sovitetaan uusi malli: (yhteisvaikutukset edelleen poissa)
+```{r}
+salary_last <- lm(salary ~ sex + degree + year + ysdeg, data=salary)
+summary(salary_last)
+```
+
+Edelleen sukupuoli ei ole merkitsevä selittäjä, vuodet ja tohtorintutkinto ovat.
+
+
